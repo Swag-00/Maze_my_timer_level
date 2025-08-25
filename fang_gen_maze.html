@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+ <body>
+ <style>   html { overflow:  hidden; } </style>
+ <canvas id="canvas"></canvas>
+
+<script src="levels.js"></script>
+<script>
+var canvas = document.getElementById("canvas");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+var context = canvas.getContext("2d");
+var mapWidth = Levels[0][0].length;
+var mapHeight = Levels[0].length;
+var pustoX=new Array(mapWidth*mapHeight), pustoY=new Array(mapWidth*mapHeight);//[mapWidth*mapHeight]
+var map = new Array(mapHeight);
+for(var t=0; t<mapHeight;t++) map[t]=new Array(mapWidth);
+var currentFrame=0, numframe=3;
+var x,y,step=5,v=1,dx=0,dy=0;//, dir=0;
+var sx=64, sy=64;
+var realpx=180, realpy=180, px=sx, py=sy;
+var bg = new Image();
+var wall = new Image();
+var apple = new Image();
+var victory = new Image();
+var fang = new Image();
+var gate = new Image();
+var gateopen = new Image();
+//var FloatRect rect;
+var counter;
+var offsetX=0, offsetY=0;
+var onGround=false;
+var oldfx, oldfy, newdir=0;
+var sz=45;	
+var fx, fy;	
+//var s1,s2;
+var timeMinut = 0
+var strTimer;
+var gamestart = false;
+
+var strlevel;
+var L=0;
+var MAXL=Levels.length;
+var gx,gy;
+var lcomplite
+
+function To2(val)
+{
+ return (val<10 ? "0"+val : val);
+}
+
+function addApple(napple)
+{
+   var k=0; // ���������� ������ ������ 
+   var pos, tmpX,tmpY;//��������� ���������� ��� �������� ������� � ������� ��������� ������� ���������
+   //��������� �� ������� � ���������� ���������� ���� ������� ���������
+   for (var yy=0; yy < mapHeight; yy++)
+   {
+    for (var xx=0; xx < mapWidth; xx++)
+    {
+      if(map[yy][xx]==0)
+      {
+        pustoX[k]=xx;
+        pustoY[k]=yy;
+        k++;
+      }       
+    }
+   }
+//���� ���������� ����������� ����� ������ ���������� ��������� ������ ������, �� ���������� ������������� ����� ������ ���� ����� ���������� ������ ������
+   if (napple>k) napple=k;
+   //����������� ������      
+   while(napple!=0)
+   {
+     pos=Math.floor(Math.random()*k);
+     tmpX=pustoX[pos];
+     tmpY=pustoY[pos];
+     map[tmpY][tmpX]=2;//������ ������ � ������
+     napple--;
+     pustoX[pos]=pustoX[k-1];
+     pustoX[k-1]=tmpX;
+     pustoY[pos]=pustoY[k-1];
+     pustoY[k-1]=tmpY; 
+     k--;
+   }      
+}
+
+function convertmap()
+{
+   for (var yy=0; yy < mapHeight; yy++)
+   {
+    for (var xx=0; xx < mapWidth; xx++)
+    {
+      switch(Levels[L][yy][xx])
+      {
+      case 'B': map[yy][xx]=6;
+       	        break;
+      case '0': map[yy][xx]=2;
+       	        break;
+      case '*': x=xx*sx; y=yy*sy; 
+                map[yy][xx]=0;
+       	        break;
+      case 'K': map[yy][xx]=5;
+                gx=xx; gy=yy;
+       	        break;
+      default: map[yy][xx]=0; 
+      }
+    }
+  }  
+}
+
+function init() {
+var numim=0;
+    fang.src = '1.png';
+    bg.src = 'background.png';
+    wall.src = 'wall.png';
+    apple.src = 'apple.png';
+    victory.src = 'victory.png';
+    gate.src = 'gate.png';
+    gateopen.src = 'gateopen.png';
+
+    COLUMNS=mapWidth-2;
+    ROWS=mapHeight-2;
+    convertmap();
+//    console.log(mapWidth);
+//    console.log(mapHeight);
+
+//    addApple(300);
+    counter=0; 
+    window.addEventListener('keydown', e => {
+     if (gamestart==true)
+     {
+       switch (e.key)
+       {
+        case 'ArrowLeft':  dx=-v; newdir=1; break;
+        case 'ArrowRight': dx=v;  newdir=1; break;
+        case 'ArrowUp':    dy=-v; newdir=2; break;
+        case 'ArrowDown':  dy=v;  newdir=2; break;
+        case '+':  if (px<300) { px+=4; x-=2; } if (py<300) { py+=4; y-=2; } break;
+        case '-':  if (px>25) { px-=4; x+=2; } if (py>25) { py-=4; y+=2; } break;
+       default: dx=0; dy=0; gamestart=true;
+      }
+     }
+     else
+     {
+       switch (e.key)
+       {
+       default: dx=0; dy=0; gamestart=true;
+       }
+     }
+    })
+
+    timer = setInterval(function () {
+    mseconds = timeMinut%100;
+    seconds = timeMinut/60%60;
+    minutes = timeMinut/60/60%60;
+    strTimer = `${To2(Math.trunc(minutes))}:${To2(Math.trunc(seconds))}:${To2(mseconds)}`;
+    if (gamestart==true) timeMinut+=1;
+    }, 10);
+
+    fang.onload = bg.onload = wall.onload = apple.onload = victory.onload = gate.onload = gateopen.onload = function() 
+    { 
+          numim++;
+          if (numim==7) 
+          {
+           draw();
+          }
+    }
+}
+
+function outtextxy(x, y, text, color)
+{
+    context.fillStyle = color;//"black";
+    context.fillText(text,x,y);//-context.measureText(text).width/2, 0);
+}
+
+function Collision(dir)
+{
+  var crx=Math.trunc((x+px-1)/sx), clx=Math.trunc(x/sx);
+  var cby=Math.trunc((y+py-1)/sy), cty=Math.trunc(y/sy);
+  var flrx=0, fllx=0, flby=0, flty=0, ret;
+
+ if (dir==0)
+ {
+  if (dx>0)
+  {
+    for (var i = cty; i<=cby; i++)
+    if (map[i][crx]>4) flrx|=1;
+    if (flrx==1) x = crx*sx - px;
+  }
+  else
+  {                     //=
+    for (var i = cty; i<=cby; i++)
+    if (map[i][clx]>4) fllx|=1;
+    if (fllx==1) x = (clx+1)*sx;
+  }
+  ret=flrx|fllx;
+ }
+ else
+ {
+  if (dy>0)
+  {
+    for (var j = clx; j<=crx; j++)
+    if (map[cby][j]>4) flby|=1;
+    if (flby==1) y = cby*sy - py;
+  }
+  else
+  {
+    for (var j = clx; j<=crx; j++)
+    if (map[cty][j]>4) flty|=1;
+    if (flty==1) y = (cty+1)*sy;
+  }
+  ret=flby|flty;
+ }
+
+ for (var i = Math.trunc(y/sy); i<=Math.trunc((y+py-1)/sy); i++)
+ for (var j = Math.trunc(x/sx); j<=Math.trunc((x+px-1)/sx); j++)
+ if (map[i][j]==2)
+ { 
+   map[i][j]=0;
+   counter++;                  
+ }
+ else
+ if (map[i][j]==4)
+ { 
+   map[i][j]=0;
+   lcomplite=true;                 
+ } 
+ 
+ return(ret);
+}
+
+
+function update()
+{
+   for(var t=0;t<step;t++)	
+   {
+	x += dx;	
+	fx=Collision(0);
+	y += dy;
+        fy=Collision(1);
+  
+        if ((oldfx==0)&&(fx==0)) { if (newdir==1) dy = 0; }
+
+        if ((oldfy==0)&&(fy==0)) { if (newdir==2) dx = 0; }
+
+        if ((fx==1)&&(fy==1))
+         if (newdir==1) { dy=0; oldfy=0;fy=0;} else { dx=0; oldfx=0;fx=0;}
+
+	if ((oldfx==1)&&(fx==0))
+	 if (newdir==1) { if (dy>0) y = Math.trunc(y/sy)*sy; else if (dy<0) y = (Math.trunc((y+py-1)/sy)+1)*sy-py; dy=0; }
+
+	if ((oldfy==1)&&(fy==0))
+	 if (newdir==2) { if (dx>0) x = Math.trunc(x/sx)*sx; else if (dx<0) x = (Math.trunc((x+px-1)/sx)+1)*sx-px; dx=0; }
+
+	oldfx=fx;
+	oldfy=fy;
+   }
+	currentFrame += 0.08;
+	if (currentFrame > numframe) currentFrame -=numframe ;
+}
+
+function drawMiniMap()
+{
+   var curx, cury;
+   for (var yy=0; yy < mapHeight; yy++)
+   {
+    for (var xx=0; xx < mapWidth; xx++)
+    {
+      curx=xx*sx-offsetX+sx;
+      cury=yy*sy-offsetY+sy;
+      if ((curx>=0)&&(curx-sx<canvas.width)&&(cury>=0)&&(cury-sy<canvas.height))
+      switch(map[yy][xx])
+      {
+      case 6: context.drawImage(wall, xx*sx-offsetX, yy*sy-offsetY, sx, sy);
+       	        break;
+      case 2: context.drawImage(apple, xx*sx-offsetX, yy*sy-offsetY, sx, sy);
+       	        break;
+      case 5: context.drawImage(gate, xx*sx-offsetX, yy*sy-offsetY, sx, sy);
+       	        break;
+      case 4: context.drawImage(gateopen, xx*sx-offsetX, yy*sy-offsetY, sx, sy);
+       	        break;
+      case 3: //context.fillStyle = "green";
+              //context.fillRect(xx*sx-offsetX, yy*sy-offsetY, sx, sy);
+       	      //x=xx*sx; y=yy*sy; 
+              //map[yy][xx]=0;
+       	      break;s
+      }
+    }
+  }  
+}
+
+function draw()
+{
+   var rot;
+   
+   if (x>Math.trunc(canvas.width/2)) offsetX = x - Math.trunc(canvas.width/2);
+   if (y>Math.trunc(canvas.height/2)) offsetY = y - Math.trunc(canvas.height/2);
+
+   context.drawImage(bg, 0, 0, canvas.width, canvas.height);
+
+   drawMiniMap();
+
+   if (dx<0) rot=1; else if (dx>0) rot=2; else if (dy<0) rot=3; else if (dy>0) rot=0; else rot=0;
+
+   context.drawImage(fang, realpx*Math.trunc(currentFrame), realpy*rot, realpx, realpy, Math.trunc(x - offsetX), Math.trunc(y - offsetY), px-1, py-1);
+   update();
+
+   if (counter>0) 
+   {
+     map[gy][gx]=4;
+   }
+   if (lcomplite==true)
+   { 
+     gamestart=false;
+     //console.log(MAXL);
+     if (Math.trunc(L+1)==MAXL)
+     {
+      context.drawImage(victory, 0, 0, canvas.width, canvas.height);
+     }
+     else
+     {
+      counter=0; 
+      L++;
+      dx=0; dy=0;
+      px=sx, py=sy;
+      offsetX=0; offsetY=0;
+      convertmap();
+     }
+   }
+   else
+   if (gamestart==false)
+   {
+     strlevel='Level '+ Math.floor(L+1);
+     context.font = Math.floor(200)+"px Verdana";
+     context.fillStyle = "white";
+     context.fillText(strlevel, Math.floor(canvas.width/2-context.measureText(strlevel).width/2),Math.floor(canvas.height/2+sz));//canvas.width/2-context.measureText(strlevel).width/2,canvas.height/2-context.measureText(strlevel).height/2);
+   }
+
+   context.font = Math.floor(sz)+"px Verdana";
+   context.fillStyle = "white";
+//   strTimer="x="+Math.trunc(x - offsetX)+" y="+Math.trunc(y - offsetY);
+   context.fillText(strTimer,canvas.width/2-150,50);
+
+   requestAnimationFrame(draw);
+}
+
+init();
+
+</script>
+</body>
+</html>
